@@ -1,9 +1,13 @@
 """Docker runtime backend tests."""
 
 import pytest
-from docker.errors import DockerException
+from docker.errors import DockerException, NotFound
 
-from seedemu_tool_service.backends.docker import DockerRuntimeBackend
+from seedemu_tool_service.backends.docker import (
+    DockerRuntimeBackend,
+    RuntimeBackendError,
+    RuntimeTargetNotFoundError,
+)
 
 
 class AvailableDockerClient:
@@ -48,6 +52,26 @@ class ContainerCollection:
 class CommandDockerClient:
     def __init__(self, container: CommandContainer) -> None:
         self.containers = ContainerCollection(container)
+
+
+class MissingContainerCollection:
+    def get(self, name: str) -> None:
+        raise NotFound(f"No such container: {name}")
+
+
+class MissingContainerDockerClient:
+    def __init__(self) -> None:
+        self.containers = MissingContainerCollection()
+
+
+class FailingContainerCollection:
+    def get(self, name: str) -> None:
+        raise DockerException("daemon unavailable")
+
+
+class FailingCommandDockerClient:
+    def __init__(self) -> None:
+        self.containers = FailingContainerCollection()
 
 
 def test_docker_backend_reports_daemon_version() -> None:
@@ -96,3 +120,20 @@ def test_docker_backend_executes_argument_vector_in_container() -> None:
         "stdout": "standard output\n",
         "stderr": "standard error\n",
     }
+
+
+def test_docker_backend_reports_missing_target() -> None:
+    backend = DockerRuntimeBackend(client=MissingContainerDockerClient())
+
+    with pytest.raises(
+        RuntimeTargetNotFoundError,
+        match="Emulated node not found: missing-node",
+    ):
+        backend.execute("missing-node", ["ping", "127.0.0.1"])
+
+
+def test_docker_backend_wraps_docker_failure() -> None:
+    backend = DockerRuntimeBackend(client=FailingCommandDockerClient())
+
+    with pytest.raises(RuntimeBackendError, match="Docker command execution failed"):
+        backend.execute("source-node", ["ping", "127.0.0.1"])

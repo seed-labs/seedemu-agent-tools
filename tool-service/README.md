@@ -73,6 +73,49 @@ Errors use a structured envelope with a machine-readable code:
 {"error": {"code": "invalid_arguments", "message": "...", "detail": [...]}}
 ```
 
+## Invoke a Tool
+
+Invoke a registered tool by posting its arguments to the tool-specific endpoint:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/tools/network.inspect_ip_address/invoke \
+  -H 'Content-Type: application/json' \
+  -d '{"address":"2001:0db8::1"}'
+```
+
+The response identifies the invoked tool and contains its structured result:
+
+```json
+{
+  "name": "network.inspect_ip_address",
+  "result": {
+    "address": "2001:db8::1",
+    "version": 6,
+    "is_private": true,
+    "is_loopback": false,
+    "is_multicast": false,
+    "is_global": false
+  },
+  "duration_ms": 0.123
+}
+```
+
+The request object is validated against the input schema returned by the tool-discovery endpoint.
+This example does not require a running Docker daemon or SEED emulation.
+
+Docker-backed tools use the same endpoint. For example, after starting a SEED emulation and
+checking its container names with `docker ps`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/tools/network.ping/invoke \
+  -H 'Content-Type: application/json' \
+  -d '{"source":"as150h-web-10.150.0.71","target":"10.151.0.71","count":2}'
+```
+
+An unreachable destination is a successful tool observation and returns HTTP `200` with
+`reachable: false`. A missing source container returns HTTP `404`; a Docker backend failure
+returns HTTP `502`.
+
 ## Run Tests
 
 ```bash

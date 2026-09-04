@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from seedemu_tool_service.api.dependencies import get_tool_registry
 from seedemu_tool_service.models.tool import ToolInvocationResponse, ToolListResponse
-from seedemu_tool_service.registry.registry import ToolRegistry
+from seedemu_tool_service.registry import ToolRegistry
 
 router = APIRouter(tags=["tools"])
 
